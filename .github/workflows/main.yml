@@ -1,0 +1,41 @@
+name: Update Docker container on VM
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted          # self-hosted runner 사용
+    timeout-minutes: 20           # Timeout 설정
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: false         # 서브모듈 비활성화
+
+    - name: Login to Docker Hub   # Docker Hub 로그인
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+    - name: Build and push Docker image # Docker 이미지 빌드 및 푸시
+      uses: docker/build-push-action@v2
+      with:
+        push: true
+        tags: heeryun/rolling-paper:latest
+
+    - name: SSH into VM and update Docker container  # SSH로 VM에 접속하여 Docker 컨테이너 업데이트
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT }}
+        script: |
+          cd /home/kevin/rolling-paper     # VM에서 실행할 스크립트
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
+        timeout: 5m                       # SSH 타임아웃 설정
